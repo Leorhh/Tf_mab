@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Training checkpoints
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Raw datasets
+data/raw/
+
+# Processed datasets
+data/processed/
+
+# Logs
+logs/
+*.log
+
+# Outputs
+outputs/
+
+# Processed/split datasets
+data/processed/
+data/splits/
+data/raw/
+# Dataset files
+data/processed/
+data/splits/
+data/raw/
