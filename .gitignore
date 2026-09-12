@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# Data
+data/raw/
+data/processed/
+data/splits/
+
+# Outputs
+outputs/checkpoints/
+outputs/logs/
+outputs/metrics/
+outputs/figures/
+
+# OS
+.DS_Store
+
+# TensorBoard
+runs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Large experiment intermediate results
+outputs/experiments/
+
+# Logs / temporary files
+*.log
+*.tmp

@@ -1,0 +1,3 @@
+Dataset,MSE,MAE,RMSE,Prediction Mean,Target Mean
+Amazon Electronics,0.101362,0.23486,0.318374,0.824217,0.794412
+KuaiRand,0.025981,0.116276,0.161187,0.072534,0.075807

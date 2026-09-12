@@ -1,0 +1,3 @@
+Dataset,Users,Items,Interactions,Max Sequence Length
+Amazon Electronics,728489,159729,6737580,20
+KuaiRand,27285,7583,1186059,50
