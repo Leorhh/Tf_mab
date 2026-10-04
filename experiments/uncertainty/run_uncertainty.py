@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+
 import argparse
 import json
 import os
@@ -6,8 +11,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from src.data.sequence_dataset import SequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.uncertainty import mc_dropout_predict
+from src.models.transformer import RewardTransformer
+from src.models.uncertainty import predict_with_uncertainty
 
 OUTPUT_DIR = "outputs/uncertainty"
 BATCH_SIZE = 256
@@ -41,7 +46,7 @@ def load_model(config, device):
     with open(mapping_path, "r", encoding="utf-8") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=max_seq_len,
         d_model=128,
@@ -146,7 +151,7 @@ def run_dataset(dataset_name, config, device):
         tgt_item = batch["target_item"].to(device)
         tgt_reward = batch["target_reward"].to(device)
 
-        mean_pred, uncertainty, _ = mc_dropout_predict(
+        mean_pred, uncertainty, _ = predict_with_uncertainty(
             model=model,
             hist_items=hist_items,
             attn_mask=attn_mask,
@@ -286,7 +291,11 @@ def main():
     print("FULL TEST SET UNCERTAINTY ANALYSIS")
     print("=" * 80)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print(f"\n[INFO] Device: {device}")
     if device.type == "cuda":
         print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")

@@ -1,4 +1,9 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import glob
 import pandas as pd
@@ -703,24 +708,29 @@ def main():
     print("BUILDING PAPER RESULT TABLES")
     print("=" * 80)
     make_dir()
-    print("\n[1/9] Dataset statistics")
-    build_table_1()
-    print("\n[2/9] Transformer prediction")
-    build_table_2()
-    print("\n[3/9] Main MAB comparison")
-    build_table_3()
-    print("\n[4/9] Mechanism ablation")
-    build_table_4()
-    print("\n[5/9] Uncertainty ablation")
-    build_table_5()
-    print("\n[6/9] Candidate size sensitivity")
-    build_table_6()
-    print("\n[7/9] MC Dropout sensitivity")
-    build_table_7()
-    print("\n[8/9] Statistical significance")
-    build_table_8()
-    print("\n[9/9] Ranking evaluation")
-    build_ranking_table()
+    steps = [
+        ("Dataset statistics", build_table_1),
+        ("Transformer prediction", build_table_2),
+        ("Main MAB comparison", build_table_3),
+        ("Mechanism ablation", build_table_4),
+        ("Uncertainty ablation", build_table_5),
+        ("Candidate size sensitivity", build_table_6),
+        ("MC Dropout sensitivity", build_table_7),
+        ("Statistical significance", build_table_8),
+        ("Ranking evaluation", build_ranking_table),
+    ]
+    skipped = []
+    for i, (name, fn) in enumerate(steps, 1):
+        print(f"\n[{i}/9] {name}")
+        try:
+            fn()
+        except FileNotFoundError as e:
+            # experiment for this table hasn't been run yet; don't
+            # let one missing table block the rest
+            print(f"[SKIP] {e}")
+            skipped.append(name)
+    if skipped:
+        print(f"\n[WARN] skipped {len(skipped)} table(s): {', '.join(skipped)}")
     print("\n" + "=" * 80)
     print("PAPER TABLE GENERATION FINISHED")
     print("=" * 80)

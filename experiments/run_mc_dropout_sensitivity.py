@@ -1,12 +1,17 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import random
 import numpy as np
 import pandas as pd
 import torch
 from src.data.sequence_dataset import SequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.data.candidate_generator import CandidateGenerator
 from src.bandit.adaptive_mab import AdaptiveMAB
 # Configuration
@@ -44,7 +49,7 @@ def set_seed(seed):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 def load_model(checkpoint_path, num_items, max_seq_len, device):
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=max_seq_len,
         d_model=128,
@@ -175,7 +180,7 @@ def evaluate_one_setting(
             device=device,
         )
         mean_predictions, uncertainties, _ = (
-            score_candidates_with_uncertainty(
+            score_with_uncertainty(
                 model=model,
                 hist_items=hist_batch,
                 attn_mask=mask_batch,
@@ -327,8 +332,8 @@ def main():
     print("MC Dropout Sensitivity Analysis")
     print("=" * 70)
     device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
         else "cpu"
     )
     print(

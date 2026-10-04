@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # repo root
+
 import json
 import random
 from pathlib import Path
@@ -7,9 +12,9 @@ import torch
 from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader
 from src.data.sequence_dataset import SequenceDataset
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.data.candidate_generator import CandidateGenerator
-from src.models.transformer import TransformerRewardModel
+from src.models.transformer import RewardTransformer
 from src.bandit.adaptive_mab import AdaptiveMAB
 
 SEEDS = [42, 123, 2024, 3407, 7777]
@@ -53,7 +58,7 @@ def load_model(dataset_name, config, device):
     with open(config["mapping_path"], "r", encoding="utf-8") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=config["max_seq_len"],
         d_model=128,
@@ -120,7 +125,7 @@ def analyze_dataset(dataset_name, config, device):
                 candidate_list.append(candidates)
                 target_positions.append(target_idx)
             candidates = torch.tensor(np.stack(candidate_list), dtype=torch.long, device=device)
-            mean_prediction, uncertainty, _ = score_candidates_with_uncertainty(
+            mean_prediction, uncertainty, _ = score_with_uncertainty(
                 model=model,
                 hist_items=hist_items,
                 attn_mask=attn_mask,
@@ -134,7 +139,7 @@ def analyze_dataset(dataset_name, config, device):
                 candidate_predictions = mean_prediction[i]
                 candidate_uncertainty = uncertainty[i]
                 candidate_mean_uncertainty = float(np.mean(candidate_uncertainty))
-                beta = bandit.compute_beta(candidate_uncertainty)
+                beta = bandit.beta_for(candidate_uncertainty)
                 selected_arm, scores, _ = bandit.select_arm(
                     predicted_reward=candidate_predictions,
                     uncertainty=candidate_uncertainty,
@@ -258,7 +263,11 @@ def print_results(group_summary, correlations):
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print("=" * 80)
     print("Adaptive Uncertainty-Driven Exploration Analysis")
     print("=" * 80)

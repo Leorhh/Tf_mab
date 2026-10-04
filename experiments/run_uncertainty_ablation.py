@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
 import json
 import os
 import random
@@ -6,8 +11,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from src.data.sequence_dataset import SequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.data.candidate_generator import CandidateGenerator
 from src.bandit.adaptive_mab import AdaptiveMAB
 
@@ -54,7 +59,7 @@ def load_model(mapping_path, checkpoint_path, device, max_seq_len):
 
     num_items = mapping["num_items"]
 
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=max_seq_len,
         d_model=128,
@@ -159,7 +164,7 @@ def run_experiment(dataset_name, config, seed, device):
                 candidates_list.append(candidates)
                 target_indices.append(target_idx)
             candidates = torch.tensor(np.stack(candidates_list), dtype=torch.long, device=device)
-            mean_prediction, uncertainty, _ = score_candidates_with_uncertainty(
+            mean_prediction, uncertainty, _ = score_with_uncertainty(
                 model=model,
                 hist_items=hist_items,
                 attn_mask=attn_mask,
@@ -256,7 +261,11 @@ def summarize_seed_results(df):
 
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print("=" * 70)
     print("Uncertainty Ablation")
     print("=" * 70)
@@ -265,7 +274,10 @@ def main():
         print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     all_summary = []
+    only = sys.argv[1] if len(sys.argv) > 1 else None
     for dataset_name, config in DATASETS.items():
+        if only and dataset_name.lower() != only.lower():
+            continue
         dataset_dir = os.path.join(OUTPUT_DIR, dataset_name.lower())
         os.makedirs(dataset_dir, exist_ok=True)
         # for seed in SEEDS:

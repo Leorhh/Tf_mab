@@ -1,13 +1,18 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import random
 import numpy as np
 import pandas as pd
 import torch
-from src.data.sequence_dataset import AmazonSequenceDataset
+from src.data.sequence_dataset import SequenceDataset
 from src.data.candidate_generator import CandidateGenerator
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.bandit.adaptive_mab import AdaptiveMAB
 
 SEED = 42
@@ -39,7 +44,7 @@ def load_model(device):
     with open(MAPPING_PATH, "r") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=20,
         d_model=128,
@@ -84,7 +89,7 @@ def main():
         )
     print("\n[1/5] Loading dataset...")
     print("-" * 70)
-    dataset = AmazonSequenceDataset(
+    dataset = SequenceDataset(
         sequence_path=SEQUENCE_PATH,
         mapping_path=MAPPING_PATH,
         max_seq_len=20,
@@ -178,7 +183,7 @@ def main():
         )
         target_index = int(target_index)
         mean_pred, uncertainty, _ = (
-            score_candidates_with_uncertainty(
+            score_with_uncertainty(
                 model=model,
                 hist_items=hist_items,
                 attn_mask=attn_mask,

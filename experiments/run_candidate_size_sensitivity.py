@@ -1,4 +1,9 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import random
 import numpy as np
@@ -6,8 +11,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from src.data.sequence_dataset import SequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.data.candidate_generator import CandidateGenerator
 from src.bandit.adaptive_mab import AdaptiveMAB
 
@@ -48,7 +53,7 @@ def set_seed(seed):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 def load_model(checkpoint_path, num_items, max_seq_len, device):
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=max_seq_len,
         d_model=128,
@@ -167,7 +172,7 @@ def evaluate_one_setting(
             device=device,
         )
         mean_predictions, uncertainties, _ = (
-            score_candidates_with_uncertainty(
+            score_with_uncertainty(
                 model=model,
                 hist_items=hist_batch,
                 attn_mask=mask_batch,
@@ -274,7 +279,9 @@ def main():
     print("Candidate Size Sensitivity - Fast Batched Version")
     print("=" * 70)
     device = torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
     )
     print(f"[INFO] Device: {device}")
     if device.type == "cuda":
@@ -290,7 +297,10 @@ def main():
         f"{INFERENCE_BATCH_SIZE}"
     )
     all_results = []
+    only = sys.argv[1] if len(sys.argv) > 1 else None
     for dataset_name, config in DATASETS.items():
+        if only and dataset_name.lower() != only.lower():
+            continue
         print()
         print("=" * 70)
         print(f"DATASET: {dataset_name}")

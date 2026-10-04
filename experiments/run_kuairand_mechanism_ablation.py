@@ -1,4 +1,9 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import random
 import numpy as np
@@ -6,8 +11,8 @@ import pandas as pd
 import torch
 from src.data.sequence_dataset import SequenceDataset
 from src.data.candidate_generator import CandidateGenerator
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.bandit.adaptive_mab import AdaptiveMAB
 
 SEEDS = [42, 123, 2024, 3407, 7777]
@@ -33,7 +38,7 @@ def load_model(device):
     with open(MAPPING_PATH, "r", encoding="utf-8") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=MAX_SEQ_LEN,
         d_model=128,
@@ -110,7 +115,7 @@ def run_one_seed(seed, dataset, model, device):
         candidates_np = np.asarray(candidates, dtype=np.int64)
         candidates_tensor = torch.tensor(candidates_np, dtype=torch.long).unsqueeze(0).to(device)
 
-        mean_pred, uncertainty, _ = score_candidates_with_uncertainty(
+        mean_pred, uncertainty, _ = score_with_uncertainty(
             model=model,
             hist_items=hist_items,
             attn_mask=attn_mask,
@@ -197,7 +202,11 @@ def run_one_seed(seed, dataset, model, device):
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print("=" * 70)
     print("KuaiRand Mechanism Ablation")
     print("=" * 70)

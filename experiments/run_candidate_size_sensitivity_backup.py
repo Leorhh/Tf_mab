@@ -1,11 +1,16 @@
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
+import os
 import json
 import numpy as np
 import pandas as pd
 import torch
 from src.data.sequence_dataset import SequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.data.candidate_generator import CandidateGenerator
 from src.bandit.adaptive_mab import AdaptiveMAB
 
@@ -42,7 +47,7 @@ def load_model(mapping_path, checkpoint_path, device, max_seq_len):
     with open(mapping_path, "r", encoding="utf-8") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=max_seq_len,
         d_model=128,
@@ -120,7 +125,7 @@ def evaluate(dataset_name, config, seed, candidate_size, device):
             single_hist = hist_items[i:i + 1]
             single_mask = attn_mask[i:i + 1]
 
-            mean_pred, uncertainty, _ = score_candidates_with_uncertainty(
+            mean_pred, uncertainty, _ = score_with_uncertainty(
                 model=model,
                 hist_items=single_hist,
                 attn_mask=single_mask,
@@ -164,7 +169,11 @@ def evaluate(dataset_name, config, seed, candidate_size, device):
 
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available()
+        else "cpu"
+    )
     print("=" * 70)
     print("Candidate Size Sensitivity")
     print("=" * 70)
