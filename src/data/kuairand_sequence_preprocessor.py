@@ -1,22 +1,29 @@
+"""Build per-user interaction sequences from the cleaned KuaiRand logs.
+
+Split is chronological per user: last interaction -> test, second to
+last -> val, everything before -> train.
+
+Memory note: the cleaned CSV carries 20 columns but we only need four,
+so read with usecols and downcast dtypes. On the full 27K logs this
+keeps peak RAM within reach of a 16 GB machine; packing the resulting
+CSVs (pack_sequences.py) takes care of the training side.
+"""
 import json
 import os
+
 import pandas as pd
 
 INPUT_PATH = "data/processed/Kuairand/random_interactions.csv"
 OUTPUT_DIR = "data/processed/Kuairand"
 MAX_SEQ_LEN = 50
 
+NEEDED_COLS = ["user_id", "video_id", "time_ms", "reward"]
+
 
 def build_item_mapping(df):
     video_ids = sorted(df["video_id"].unique())
-    item_to_idx = {
-        str(video_id): idx + 1
-        for idx, video_id in enumerate(video_ids)
-    }
-    idx_to_item = {
-        str(idx): video_id
-        for video_id, idx in item_to_idx.items()
-    }
+    item_to_idx = {str(v): i + 1 for i, v in enumerate(video_ids)}  # 0 = padding
+    idx_to_item = {str(i): v for v, i in item_to_idx.items()}
     return {
         "num_items": len(video_ids),
         "padding_idx": 0,
@@ -26,45 +33,31 @@ def build_item_mapping(df):
 
 
 def build_sequences(df, item_to_idx):
-    train_rows = []
-    val_rows = []
-    test_rows = []
-    grouped = df.groupby("user_id", sort=False)
-    for user_id, user_df in grouped:
+    train_rows, val_rows, test_rows = [], [], []
+    for user_id, user_df in df.groupby("user_id", sort=False):
         user_df = user_df.sort_values("time_ms")
-        items = [
-            item_to_idx[str(video_id)]
-            for video_id in user_df["video_id"].tolist()
-        ]
+        items = [item_to_idx[str(v)] for v in user_df["video_id"].tolist()]
         rewards = user_df["reward"].astype(float).tolist()
+
         n = len(items)
         if n < 3:
             continue
-        for target_pos in range(1, n):
-            start = max(0, target_pos - MAX_SEQ_LEN)
-            history = items[start:target_pos]
-            target_item = items[target_pos]
-            target_reward = rewards[target_pos]
+        for pos in range(1, n):
+            history = items[max(0, pos - MAX_SEQ_LEN):pos]
             row = {
                 "user_id": user_id,
                 "history_items": ",".join(map(str, history)),
-                "target_item": target_item,
-                "target_reward": target_reward,
+                "target_item": items[pos],
+                "target_reward": rewards[pos],
                 "history_length": len(history),
             }
-            if target_pos == n - 1:
+            if pos == n - 1:
                 test_rows.append(row)
-            elif target_pos == n - 2:
+            elif pos == n - 2:
                 val_rows.append(row)
             else:
                 train_rows.append(row)
     return train_rows, val_rows, test_rows
-
-
-def save_sequences(rows, path):
-    df = pd.DataFrame(rows)
-    df.to_csv(path, index=False)
-    return df
 
 
 def main():
@@ -72,53 +65,33 @@ def main():
     print("=" * 60)
     print("KuaiRand Sequence Preprocessing")
     print("=" * 60)
-    print("\n[1/5] Loading data...")
-    df = pd.read_csv(INPUT_PATH)
+
+    print("\n[1/4] Loading data (4 of 20 columns)...")
+    df = pd.read_csv(
+        INPUT_PATH,
+        usecols=NEEDED_COLS,
+        dtype={"user_id": "int32", "video_id": "int32", "time_ms": "int64", "reward": "float32"},
+    )
     print(f"[INFO] Interactions: {len(df):,}")
     print(f"[INFO] Users: {df['user_id'].nunique():,}")
     print(f"[INFO] Videos: {df['video_id'].nunique():,}")
-    print("\n[2/5] Sorting by user and time...")
-    df = df.sort_values(
-        ["user_id", "time_ms"],
-        kind="mergesort"
-    ).reset_index(drop=True)
-    print("[INFO] Sorting completed.")
-    print("\n[3/5] Building video mapping...")
+
+    print("\n[2/4] Sorting by user and time...")
+    df = df.sort_values(["user_id", "time_ms"], kind="mergesort").reset_index(drop=True)
+
+    print("\n[3/4] Building sequences...")
     mapping = build_item_mapping(df)
-    mapping_path = os.path.join(
-        OUTPUT_DIR,
-        "item_mapping.json"
-    )
-    with open(mapping_path, "w", encoding="utf-8") as f:
-        json.dump(
-            mapping,
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
-    print(f"[INFO] Number of videos: {mapping['num_items']:,}")
-    print(f"[INFO] Padding index: {mapping['padding_idx']}")
-    print("\n[4/5] Building sequences...")
-    train_rows, val_rows, test_rows = build_sequences(
-        df,
-        mapping["item_to_idx"]
-    )
-    print(f"[INFO] Train samples: {len(train_rows):,}")
-    print(f"[INFO] Val samples:   {len(val_rows):,}")
-    print(f"[INFO] Test samples:  {len(test_rows):,}")
-    print("\n[5/5] Saving files...")
-    train_df = save_sequences(
-        train_rows,
-        os.path.join(OUTPUT_DIR, "train_sequences.csv")
-    )
-    val_df = save_sequences(
-        val_rows,
-        os.path.join(OUTPUT_DIR, "val_sequences.csv")
-    )
-    test_df = save_sequences(
-        test_rows,
-        os.path.join(OUTPUT_DIR, "test_sequences.csv")
-    )
+    train_rows, val_rows, test_rows = build_sequences(df, mapping["item_to_idx"])
+    print(f"[INFO] Train: {len(train_rows):,}  Val: {len(val_rows):,}  Test: {len(test_rows):,}")
+
+    print("\n[4/4] Saving...")
+    pd.DataFrame(train_rows).to_csv(os.path.join(OUTPUT_DIR, "train_sequences.csv"), index=False)
+    pd.DataFrame(val_rows).to_csv(os.path.join(OUTPUT_DIR, "val_sequences.csv"), index=False)
+    pd.DataFrame(test_rows).to_csv(os.path.join(OUTPUT_DIR, "test_sequences.csv"), index=False)
+
+    with open(os.path.join(OUTPUT_DIR, "item_mapping.json"), "w", encoding="utf-8") as f:
+        json.dump(mapping, f, ensure_ascii=False, indent=2)
+
     stats = {
         "dataset": "KuaiRand",
         "source": "random_interactions.csv",
@@ -126,36 +99,17 @@ def main():
         "num_users": int(df["user_id"].nunique()),
         "num_videos": int(df["video_id"].nunique()),
         "max_seq_len": MAX_SEQ_LEN,
-        "train_samples": len(train_df),
-        "val_samples": len(val_df),
-        "test_samples": len(test_df),
+        "train_samples": len(train_rows),
+        "val_samples": len(val_rows),
+        "test_samples": len(test_rows),
         "split_strategy": "chronological",
         "test_strategy": "last interaction per user",
         "validation_strategy": "second-last interaction per user",
     }
-    stats_path = os.path.join(
-        OUTPUT_DIR,
-        "sequence_split_stats.json"
-    )
-    with open(stats_path, "w", encoding="utf-8") as f:
-        json.dump(
-            stats,
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
-    print("\n" + "=" * 60)
-    print("Preprocessing completed")
-    print("=" * 60)
-    print(f"Train: {len(train_df):,}")
-    print(f"Val:   {len(val_df):,}")
-    print(f"Test:  {len(test_df):,}")
-    print("\nFiles:")
-    print("  train_sequences.csv")
-    print("  val_sequences.csv")
-    print("  test_sequences.csv")
-    print("  item_mapping.json")
-    print("  sequence_split_stats.json")
+    with open(os.path.join(OUTPUT_DIR, "sequence_split_stats.json"), "w", encoding="utf-8") as f:
+        json.dump(stats, f, ensure_ascii=False, indent=2)
+
+    print("\nDone. Files written to", OUTPUT_DIR)
 
 
 if __name__ == "__main__":
