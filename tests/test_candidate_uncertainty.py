@@ -1,9 +1,14 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
 import json
 import torch
 from torch.utils.data import DataLoader
-from src.data.sequence_dataset import AmazonSequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.data.sequence_dataset import SequenceDataset
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 
 DATA_PATH = "data/processed/amazon/test_sequences.csv"
 MAPPING_PATH = "data/processed/amazon/item_mapping.json"
@@ -45,7 +50,7 @@ def main():
         print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")
 
     print("\n[1/4] Loading dataset...")
-    dataset = AmazonSequenceDataset(
+    dataset = SequenceDataset(
         sequence_path=DATA_PATH,
         mapping_path=MAPPING_PATH,
         max_seq_len=MAX_SEQ_LEN,
@@ -63,7 +68,7 @@ def main():
     with open(MAPPING_PATH, "r") as f:
         mapping = json.load(f)
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=MAX_SEQ_LEN,
         d_model=128,
@@ -89,7 +94,7 @@ def main():
     print(f"[INFO] Candidates shape: {candidates.shape}")
 
     print("\n[4/4] Running MC Dropout...")
-    mean_prediction, uncertainty, predictions = score_candidates_with_uncertainty(
+    mean_prediction, uncertainty, predictions = score_with_uncertainty(
         model=model,
         hist_items=hist_items,
         attn_mask=attn_mask,

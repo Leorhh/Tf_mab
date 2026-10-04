@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
 import numpy as np
 from src.bandit.adaptive_mab import AdaptiveMAB
 
@@ -14,7 +19,7 @@ def main():
     print("Adaptive MAB Uncertainty Test")
     print("=" * 60)
     for name, unc in cases.items():
-        beta = mab.compute_beta(unc)
+        beta = mab.beta_for(unc)
         print()
         print(name)
         print(f"Mean uncertainty: {np.mean(unc):.6f}")

@@ -1,7 +1,12 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
 import torch
 from torch.utils.data import DataLoader
-from src.data.sequence_dataset import AmazonSequenceDataset
-from src.models.transformer import TransformerRewardModel
+from src.data.sequence_dataset import SequenceDataset
+from src.models.transformer import RewardTransformer
 from src.models.candidate_scorer import score_candidates
 
 DATA_PATH = "data/processed/amazon/test_sequences.csv"
@@ -21,7 +26,7 @@ def main():
         print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")
 
     print("\n[1/4] Loading dataset...")
-    dataset = AmazonSequenceDataset(
+    dataset = SequenceDataset(
         sequence_path=DATA_PATH,
         mapping_path=MAPPING_PATH,
         max_seq_len=MAX_SEQ_LEN,
@@ -46,7 +51,7 @@ def main():
         mapping = json.load(f)
 
     num_items = mapping["num_items"]
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=MAX_SEQ_LEN,
         d_model=128,

@@ -1,9 +1,14 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root
+
 import json
 import torch
 from torch.utils.data import DataLoader
-from src.data.sequence_dataset import AmazonSequenceDataset
-from src.models.transformer import TransformerRewardModel
-from src.models.candidate_uncertainty import score_candidates_with_uncertainty
+from src.data.sequence_dataset import SequenceDataset
+from src.models.transformer import RewardTransformer
+from src.models.candidate_uncertainty import score_with_uncertainty
 from src.bandit.random import RandomBandit
 from src.bandit.epsilon_greedy import EpsilonGreedy
 from src.bandit.ucb import UCB
@@ -50,7 +55,7 @@ def main():
         print(f"[INFO] GPU: {torch.cuda.get_device_name(0)}")
 
     print("\n[1/5] Loading dataset...")
-    dataset = AmazonSequenceDataset(
+    dataset = SequenceDataset(
         sequence_path=DATA_PATH,
         mapping_path=MAPPING_PATH,
         max_seq_len=MAX_SEQ_LEN,
@@ -69,7 +74,7 @@ def main():
         mapping = json.load(f)
     num_items = mapping["num_items"]
     checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)
-    model = TransformerRewardModel(
+    model = RewardTransformer(
         num_items=num_items,
         max_seq_len=MAX_SEQ_LEN,
         d_model=128,
@@ -94,7 +99,7 @@ def main():
     print(f"[INFO] Candidates shape: {candidates.shape}")
 
     print("\n[4/5] Computing reward + uncertainty...")
-    mean_prediction, uncertainty, _ = score_candidates_with_uncertainty(
+    mean_prediction, uncertainty, _ = score_with_uncertainty(
         model=model,
         hist_items=hist_items,
         attn_mask=attn_mask,
