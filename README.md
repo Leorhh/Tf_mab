@@ -1,5 +1,8 @@
 # Tf_mab — Transformer Reward Model + Adaptive Multi-Armed Bandit
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
+
 Combining Transformer-based sequential reward modeling with multi-armed
 bandit exploration for recommendation. A Transformer encodes the
 interaction history and predicts a reward for each candidate item;
@@ -7,8 +10,6 @@ MC Dropout turns those predictions into uncertainty estimates; and a
 bandit layer — whose exploration coefficient adapts to the current
 uncertainty — picks what to show. Evaluated on Amazon Electronics and
 KuaiRand with multi-seed comparisons, ablations, and significance tests.
-
-![framework](outputs/paper_figures_ieee_final/figure_1_proposed_framework.png)
 
 ## Method
 
