@@ -1,7 +1,5 @@
 # Tf_mab — Transformer Reward Model + Adaptive Multi-Armed Bandit
 
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-
 Combining Transformer-based sequential reward modeling with multi-armed
 bandit exploration for recommendation. A Transformer encodes the
 interaction history and predicts a reward for each candidate item;
